@@ -1,0 +1,42 @@
+The Line at One-Half — music video (Chalkboard style, Lemo-Opuscar)
+
+MATHEMATICS (the subject of the film; nothing of it is reproduced here)
+- The claimed proof of the Riemann Hypothesis and its Lean formalisation: Levent Alpöge, working with Claude,
+  announced 2026-11-20. Author's outline: https://alpo.ge/remark.pdf · code: https://alpo.ge/ ·
+  GitHub mirror: https://github.com/CocoSgt/riemann-hypothesis-lean. Status at the time of the film: no public
+  independent build, kernel replay or review.
+- Background facts on the board (Riemann 1859; Weil 1948; Stepanov 1969; the first zeros of ζ; the explicit formula;
+  Weil's positivity criterion) are standard textbook material. The outline of the new argument (theta-lift chains of
+  length about √X, Rallis seesaw and Bessel periods, Iwasawa towers, qN = M^k + R with iterated Parseval, the 2/3 stall,
+  twisting, a weakened Vandiver, K-groups) is paraphrased from remark.pdf; the Lean figures (175,187 files, ≈17.4 M
+  lines, 0 sorry, 0 axiom declarations) from the mirror's README.
+
+MUSIC
+- "The Line at One-Half", generated with Suno and supplied by the film's owner (audio/song.mp3). Used as the
+  complete soundtrack, unedited.
+
+IMAGES, FOOTAGE, MODELS
+- None. Wall, boards, frame, tray, clock and every chalk stroke are drawn in code. No photographs, no scans,
+  no AI-generated images, no 3D models.
+
+CHALK ENGINE
+- js/chalk.js, js/hand.js, js/r2d.js, js/post.js, js/props.js, js/lab.js, js/hz.js, tools/foley_lib.py: from the
+  Chalkboard style of the Lemo-Opuscar library (github.com/lemomo-ai/lemo-opuscar), used as the style's engine.
+- js/mathhand.js (Greek letters and maths symbols as chalk centre lines), js/stage.js, js/app.js, js/film.js: written
+  for this film.
+
+FONTS (SIL Open Font License 1.1; licence texts in fonts/)
+- EMS Delight, single-stroke SVG font (derivative of Delius by Natalia Raices; SVG conversion by Sheldon B. Michaels
+  and Windell H. Oskay, gitlab.com/oskay/svg-fonts): the English and maths on the board. fonts/OFL-EMS.txt
+- LXGW WenKai v1.530 (© LXGW, github.com/lxgw/LxgwWenKai): the subtitle face, subset to the characters used
+  (fonts/wenkai-sub.woff2). fonts/OFL-LXGWWenKai.txt
+
+SOUND
+- Chalk recordings from Wikimedia Commons, cut into grains (tools/foley_lib.py), both CC0 1.0:
+  "chalk-on-chalkboard" by fattirewhitey (freesound.org/people/fattirewhitey/sounds/264944;
+  Commons "264944 chalk-on-chalkboard.wav"); "Chalkboard-writing.ogg" by Tomproberts (Commons).
+- Felt wipe and whip whooshes: synthesised (Lemo-Opuscar core/audio/sfx.py).
+
+TOOLS
+- Lyric timing: demucs (MIT), stable-ts (MIT), faster-whisper (MIT) with the Whisper large-v3-turbo model (MIT).
+- Render: headless Chromium via Playwright, ffmpeg.

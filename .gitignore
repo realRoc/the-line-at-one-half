@@ -1,0 +1,8 @@
+node_modules/
+out/
+stills/
+fonts/LXGWWenKai-Regular.ttf
+foley/raw/
+foley/lib/
+.DS_Store
+*.mp4
