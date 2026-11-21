@@ -3,9 +3,10 @@
 一支 MV（3:58，1080p，30 fps）：用一面写满粉笔的黑板墙，把 Levent Alpöge 与 Claude 宣布的黎曼猜想证明的**思路**讲一遍。
 歌是 Suno 生成的同名歌曲，字幕逐词跟唱（英文歌词 + 中文译文），画面上的每一笔粉笔都卡在歌词的某个词上。
 
-[![poster](poster.jpg)](https://github.com/realRoc/the-line-at-one-half/releases/download/v1.0/the-line-at-one-half.mp4)
+[![poster](poster.jpg)](https://github.com/realRoc/the-line-at-one-half/releases/download/v2.0/the-line-at-one-half-v2.mp4)
 
-- 成片（1080p，166 MB，在 Release 里）：[the-line-at-one-half.mp4](https://github.com/realRoc/the-line-at-one-half/releases/download/v1.0/the-line-at-one-half.mp4)
+- **v2（当前）**：[the-line-at-one-half-v2.mp4](https://github.com/realRoc/the-line-at-one-half/releases/download/v2.0/the-line-at-one-half-v2.mp4)：同一面黑板、同一套板书，加了节拍驱动的镜头、副歌的“夜间”粉笔辉光，还有一只会动的粉笔 Clawd。
+- v1（原版，tag `v1.0`）：[the-line-at-one-half.mp4](https://github.com/realRoc/the-line-at-one-half/releases/download/v1.0/the-line-at-one-half.mp4)
 - 字幕文件：[`subtitles_en.srt`](subtitles_en.srt)、[`subtitles_zh.srt`](subtitles_zh.srt)（画面里已经烧录了字幕）
 - 分镜与设计：[`TREATMENT.md`](TREATMENT.md)
 
@@ -84,6 +85,24 @@
 
 ---
 
+## v2 改了什么
+
+参考了 [PDoomVideo](https://github.com/JohnHeibel/PDoomVideo) 的**运动语法**（不是它的画风）：每拍推镜、命中时的衰减抖动和闪白、每个转场由一个动作带出、副歌逐次加码。
+
+- **节拍**：`tools/beats.py` 用 librosa 从歌里取出节拍（≈92 BPM）、响度曲线，写进 `data/beats.json`；`js/fx.js` 用它让镜头每拍轻推、手持漂移、轻微侧倾，主歌收、副歌放、第二遍副歌更狠。
+- **命中**：零点落线、BUILD IT、√X 写完、最后那条线画完，都有闪白、衰减抖动、橙色冲击环和粉笔灰爆开（全部是 t 的纯函数）。
+- **夜间**：两遍副歌和结尾“Then the line is drawn”时教室灯暗下去，粉笔自己发光（WebGL 后期：mipmap 辉光、色差、夜间调色、颗粒）。
+- **粉笔 Clawd**（Claude 的吉祥物）：0:27 在第一块板上被一笔笔画出来，然后活了：
+  看零点落线、对着 “proof ?” 冒问号；擦黑板那一下是它冲过去把 “d/dn ?” 蹭掉的；副歌里沿 θ 提升链一拍一跳往上爬，
+  举着淡黄色粉笔写 √X（淡黄色本来就是 Claude 的笔迹）；在岩泽塔一层层往上跳；骑着“每次提升的代价”曲线走到 2/3 坐下，
+  转个圈扭过去再冲到顶；第二遍副歌踩着那条橙色线一路冲浪缝回黎曼的板；Lean 板上举着黄粉笔写下三条公理；片尾在署名下面挥手。
+  身体是用粉笔一行行涂出来的陶土色，眼睛是留白的黑板（`js/clawd.js`），所以它和板书一样吃光、一样有颗粒。
+- **Clawd 一刻不停**：不赶路的时候就跟着节拍跳——主歌摇摆点头、甩手，副歌每拍起跳，落地压扁、起跳拉长；θ 那几跳是后空翻；跑得快会拖出粉笔残影；开心时眯眼。
+- **第二遍副歌：重数 = 分身**。Clawd 每提升一次，就在身后留下一个自己，链上站满粉笔 Clawd，“higher and higher” 时一排人浪后空翻，冲浪前一起炸成粉笔灰。
+- **镜头语法**：进第一遍副歌时镜头一路扎进 Clawd 的眼睛（眼睛是留白的黑板，正好通到下一块黑板）；进第二遍副歌是一个 360° 桶滚；换板用 Clawd 形状的光圈收放；片尾 Clawd 后空翻落地，镜头再扎进它的眼睛，黑场。
+- **粉笔大字**：副歌的 LIFT IT! / θ / HIGHER! / TO THE LINE / ONE-HALF，主歌的关键词（160 YEARS、STACK IT、NO WAY BACK、FLOOR BY FLOOR、17,400,000、NOT DONE……）用粉笔砸上屏幕，带回弹和震动。
+- **字幕**：全部中英双语，英文为主（大字、逐词跟唱，正在唱的词会弹一下、发光），中文在下面小一号；讲解卡也补了英文。
+
 ## 怎么做的
 
 - 风格：[Lemo-Opuscar](https://github.com/lemomo-ai/lemo-opuscar) 库里的 **Chalkboard（黑板粉笔）**。整片是代码画出来的：
@@ -99,7 +118,7 @@ LIB=~/lemo-opuscar sh build.sh
 
 需要 Lemo-Opuscar 库（`setup.sh deps` 装好 Node、无头浏览器、Python 环境）和 ffmpeg 7+。字体和粉笔录音由脚本自动下载。
 
-文件：`index.html` → `js/app.js`（合成：墙、黑板、粉笔、擦除、光、字幕）→ `js/film.js`（每一笔、镜头、字幕，都是数据）。
+文件：`index.html` → `js/app.js`（合成：墙、黑板、粉笔、擦除、光、字幕）→ `js/film.js`（每一笔、镜头、字幕、Clawd 的走位和每一次命中，都是数据）；`js/fx.js`（节拍与命中）、`js/clawd.js`（粉笔 Clawd）。
 `js/chalk.js`、`js/hand.js`、`js/r2d.js`、`js/post.js`、`js/props.js` 来自 Lemo-Opuscar 的 Chalkboard 引擎。
 
 ## 版权与致谢

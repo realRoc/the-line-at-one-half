@@ -1,11 +1,13 @@
 // The Line at One-Half — the whole film as data: every chalk stroke with its time (locked to the sung words in
 // lyrics.js), the one wipe, the camera, the subtitle cues, the board texts for readcheck and the sound events.
 // World units: seven slates in one frame (stage.js), slate i spans x SX(i) … SX(i)+3200, y 0 … 1700.
-import { clamp, lerp, eio } from '/core/lib.js';
+import { clamp, lerp, eio, ei, eo } from '/core/lib.js';
 import { Stroke, catmull, arc as arcS } from './chalk.js';
 import { M, mathWidth } from './mathhand.js';
 import { SX, PW, BH, BW } from './stage.js';
 import { LYRICS } from './lyrics.js';
+import { Hits } from './fx.js';
+import { Track, U as CU, localToWorld } from './clawd.js';
 
 export const DUR = 237.6;
 // lookup: start time of the n-th occurrence of a sung word (case-insensitive prefix match)
@@ -17,12 +19,12 @@ const PLAIN = { zeta: 'ζ', theta: 'θ', Lambda: 'Λ', chi: 'χ', pi: 'π', rho:
   times: '×', cdot: '·', cdots: '⋯', vdots: '⋮', check: '✓', cross: '✗', Z: 'ℤ', F: '𝔽', int: '∫', hourglass: '⧗', partial: '∂', ell: 'ℓ', emdash: '—', odia: 'ö' };
 const plain = s => s.replace(/\\sqrt/g, '√').replace(/\\hat/g, '').replace(/\\([a-zA-Z]+)/g, (_, n) => PLAIN[n] ?? n).replace(/[{}_^]/g, '');
 
-export const NOTES = [   // Chinese notes on the subtitle plate where nobody sings
-  { id: 'n0', t0: 1.2, t1: 9.5, zh: '黎曼猜想：ζ(s) 的非平凡零点，实部全都等于 1/2。' },
-  { id: 'n1', t0: 20.4, t1: 25.3, zh: 'ζ 函数一头连着全体正整数，一头连着全体素数。' },
-  { id: 'n2', t0: 25.5, t1: 30.6, zh: '零点在哪里，决定了素数分布的误差有多小。' },
-  { id: 'n3', t0: 103.0, t1: 107.35, zh: '每做一次 θ 提升，多赢一层重数；连提 √X 次，模仿有限域里的高重数。' },
-  { id: 'n4', t0: 224.6, t1: 237.6, zh: '注：截至 2026-11-20，这份证明尚无公开的独立编译与同行审查。' },
+export const NOTES = [   // bilingual notes on the subtitle plate where nobody sings (English first)
+  { id: 'n0', t0: 1.2, t1: 9.5, en: 'The Riemann Hypothesis: every nontrivial zero of ζ(s) has real part 1/2.', zh: '黎曼猜想：ζ(s) 的非平凡零点，实部全都等于 1/2。' },
+  { id: 'n1', t0: 20.4, t1: 25.3, en: 'ζ ties all the positive integers to all the primes.', zh: 'ζ 函数一头连着全体正整数，一头连着全体素数。' },
+  { id: 'n2', t0: 25.5, t1: 30.6, en: 'Where the zeros sit decides how well we can count the primes.', zh: '零点在哪里，决定了素数分布的误差有多小。' },
+  { id: 'n3', t0: 103.0, t1: 107.35, en: 'Each θ-lift wins one more layer of multiplicity; √X lifts copy the finite-field trick.', zh: '每做一次 θ 提升，多赢一层重数；连提 √X 次，模仿有限域里的高重数。' },
+  { id: 'n4', t0: 224.6, t1: 237.6, en: 'Note: as of 2026-11-20 there is no public independent build or peer review of this proof.', zh: '注：截至 2026-11-20，这份证明尚无公开的独立编译与同行审查。' },
 ];
 
 export function build(W = 1920, H = 1080) {
@@ -163,7 +165,7 @@ export function build(W = 1920, H = 1080) {
   T.sew0 = at('every', 172) + .05; T.sew1 = at('to', 174.5) - .1;
   const sewPts = [[SX(2) + L3, 1420], [SX(2) + L3, 1590], [LX + 6, 1590]];
   OX = 0;
-  const sew = L(sewPts, T.sew0, T.sew1 - T.sew0, { color: 'orange', w: 8, wob: 2, R: 1, ease: .3 });
+  const sew = T.sewSt = L(sewPts, T.sew0, T.sew1 - T.sew0, { color: 'orange', w: 8, wob: 2, R: 1, ease: .3 });
   EV.push({ t: T.sew0, type: 'thread', d: T.sew1 - T.sew0 });
   const h1 = [at('line', 174.6), at('line', 175.9), at('line', 177.7)];
   h1.forEach((t, i) => { cross(LX, AX + 17.5 * Z[i], 22, t - .02, { color: 'orange', w: 6.5 }); EV.push({ t, type: 'zero' }); });
@@ -231,10 +233,10 @@ export function build(W = 1920, H = 1080) {
   dashed(GX, y1, GX + GW, y1, at('two-thirds') + .2, .4, { n: 14 });
   w('g1', '1', GX - 80, y1 + 20, 54, at('two-thirds') + .55, { dur: .2 });
   const curve = []; for (let i = 0; i <= 30; i++) { const u = i / 30; curve.push([GX + u * GW * .62, GY - GH * 2 / 3 * (1 - Math.exp(-4.2 * u))]); }
-  L(curve, at('way', 150) - .1, 1.0, { smooth: true, w: 7 });
+  const curveSt = L(curve, at('way', 150) - .1, 1.0, { smooth: true, w: 7 });
   w('twist', 'twist by \\chi', GX + GW * .55, y23 + 130, 56, at('twist') - .05, { dur: .7 });
   const c2p = []; for (let i = 0; i <= 16; i++) { const u = i / 16; c2p.push([GX + GW * .62 + u * GW * .36, lerp(curve[30][1], y1 + 6, Math.pow(u, 1.4))]); }
-  L(c2p, at('stubborn') - .1, .7, { smooth: true, w: 7 });
+  const c2St = L(c2p, at('stubborn') - .1, .7, { smooth: true, w: 7 });
   w('vandiver', 'weak Vandiver \\imp K(\\Z)', GX - 40, 270, 56, at('vandiver') - .3, { dur: 1.1 });
 
   // ════════ S6 · Lean (181 – 223 s)
@@ -249,14 +251,14 @@ export function build(W = 1920, H = 1080) {
   w('thm1', 'theorem riemannHypothesis :', 190, 980, 58, at('levent') - .05, { dur: 1.5 });
   const thm2 = w('thm2', 'RiemannHypothesis := rhOfAll', 260, 1070, 58, at('hand', 198) - .1, { dur: 1.2 }), ex = thm2.x - OX + 50;
   arrow(ex, 1050, ex + 200, 1050, at('kernel') - .1, .35, { w: 6 });
-  w('kernel', 'kernel', ex + 230, 1070, 58, at('kernel') + .25, { dur: .5 });
+  T.kernel = w('kernel', 'kernel', ex + 230, 1070, 58, at('kernel') + .25, { dur: .5 });
   w('print', '#print axioms riemannHypothesis', 1720, 300, 58, at('when', 202) + .4, { dur: 2.2 });
   w('ax-a', 'propext', 1780, 440, 66, at('only') + .05, { dur: .5, color: 'kid' });
   w('ax-b', 'Classical.choice', 1780, 545, 66, at('three') + .05, { dur: .7, color: 'kid' });
   w('ax-c', 'Quot.sound', 1780, 650, 66, at('names') + .1, { dur: .5, color: 'kid' });
   w('nothing', '(nothing else)', 1800, 760, 52, at('nothing') - .05, { dur: .8 });
   const L6 = 2950;
-  L([[L6, 70], [L6, 1500]], at('then', 213) + .05, 1.4, { color: 'orange', w: 10, ease: .5 });
+  const line6 = L([[L6, 70], [L6, 1500]], at('then', 213) + .05, 1.4, { color: 'orange', w: 10, ease: .5 });
   w('lbl6', 'Re(s) = 1/2', 2390, 1180, 70, at('drawn') + .5, { dur: 1.2 });
 
   // ════════ S7 · end card (224 – 237.6 s)
@@ -281,7 +283,7 @@ export function build(W = 1920, H = 1080) {
     K(30.5, 0, 2150, 700, .72, true), K(49.2, 0, 2120, 690, .76),
     K(49.6, 0, 2120, 690, .76), K(50.3, 1, 860, 640, .8), K(53.8, 1, 860, 640, .8), K(59.0, 1, 860, 740, .76), K(69.4, 1, 860, 760, .76),
     K(70.45, 1, 860, 760, .76), K(71.45, 1, 2420, 560, .9), K(81.0, 1, 2420, 560, .9),
-    K(81.8, 1, 2420, 560, .9), K(82.15, 2, 900, 980, .9), K(84.9, 2, 1250, 820, .72), K(90.6, 2, 1250, 820, .7), K(95.0, 2, 1900, 640, .8), K(96.5, 2, 2250, 760, .72), K(102.5, 2, 2250, 760, .72),
+    K(81.8, 1, 2420, 560, .9), K(82.15, 2, 900, 980, .9), K(84.9, 2, 1250, 820, .72), K(90.6, 2, 1250, 820, .7), K(95.0, 2, 1900, 640, .8), K(96.5, 2, 2250, 760, .68), K(102.5, 2, 2250, 760, .68),
     K(104.6, 2, 1600, 820, .56), K(106.9, 2, 1600, 820, .56),
     K(107.3, 3, 820, 700, .9), K(117.2, 3, 820, 720, .9), K(118.0, 3, 2350, 900, .8), K(120.9, 3, 2350, 760, .8), K(126.65, 3, 2350, 740, .8),
     K(127.1, 4, 820, 640, .86), K(136.0, 4, 900, 700, .84), K(147.4, 4, 920, 720, .84),
@@ -289,11 +291,11 @@ export function build(W = 1920, H = 1080) {
     K(158.9, 2, 1200, 860, .72), K(161.8, 2, 1250, 840, .7), K(166.2, 2, 900, 760, .8), K(167.6, 2, 900, 980, .85), K(171.8, 2, 2000, 600, .82), K(172.6, 2, 2650, 1150, .72),
     K(T.sew1, 0, 2300, 1160, .72), K(178.9, 0, 2260, 1150, .74),
     WALLV(180.6), WALLV(181.0), K(181.75, 5, 860, 600, .86), K(190.5, 5, 860, 640, .86), K(201.6, 5, 900, 760, .86),
-    K(202.5, 5, 2350, 560, .86), K(212.2, 5, 2350, 580, .86), K(213.4, 5, 2350, 780, .72), K(218.6, 5, 2350, 780, .72),
+    K(202.5, 5, 2350, 560, .86), K(212.2, 5, 2350, 580, .86), K(213.4, 5, 2350, 860, .72), K(218.6, 5, 2350, 860, .72),
     WALLV(221.4), WALLV(223.6),
     K(224.4, 6, 1600, 720, .62), K(DUR, 6, 1600, 730, .6),
   ];
-  const camAt = t => {
+  const camAt0 = t => {
     let i = 0; while (i + 1 < keys.length && t >= keys[i + 1].t) i++;
     const a = keys[i], b = keys[i + 1];
     let shot = 0; for (let j = 1; j <= i; j++) if (keys[j].cut) shot++;
@@ -304,6 +306,187 @@ export function build(W = 1920, H = 1080) {
     return { cx: lerp(a.cx, b.cx, r), cy: lerp(a.cy, b.cy, r), s: ls, shot };
   };
 
+  // ════════ v2: Clawd and the hits
+  const HITS = new Hits(), WX = (i, x) => SX(i) + x;
+  const k0 = 1.25, GH0 = 8 * CU;                                  // Clawd's height at k = 1 (legs to the top of the body)
+  const front = st => st.at(st.prog(Math.min(Math.max(st.t0, 0), 1e9)) * st.len);
+  const frontAt = (st, t) => st.at(st.prog(t) * st.len);
+  const dirAt = (st, t) => { const d = st.dir(st.prog(t) * st.len); return Math.atan2(d[1], d[0]); };
+  const CLAWD_T = 27.4;
+  const CL = new Track(0, WX(0, 1660), 1640, k0);
+  // — board 0: drawn under the ζ line, comes alive, hops onto the real axis to watch the zeros
+  const alive = CLAWD_T + 2.0;
+  CL.still(0, alive);
+  CL.emote(alive, alive + 1.0, '!');
+  HITS.addZoom(at('eighteen'), .05, .5).addFlash(at('eighteen'), .1, [1, .97, .9], .3).addZoom(at('very') - .05, .035, .4);
+  HITS.addBurst(alive, WX(0, 1660), 1560, 'clay', 30).addShake(alive, 6, .3).addFlash(alive, .12, [1, .8, .7], .25);
+  CL.hop(30.15, 30.75, WX(0, 2480), AX, 380).face(30.75, 49.4, -1);
+  HITS.addBurst(30.75, WX(0, 2480), AX, 'white', 18).addShake(30.75, 6, .3);
+  HITS.addRing(crit.t1, WX(0, LX), 700, 'orange', 340, .9).addFlash(crit.t1, .15, [1, .7, .45], .4);
+  for (let i = 0; i < 10; i++) { const t = lerp(z0 + .05, z1, i / 9) + .12; HITS.addRing(t, WX(0, LX), IM(Z[i]), 'orange', 120, .5).addBurst(t, WX(0, LX), IM(Z[i]), 'orange', 8, { puff: false, speed: 160, size: 2.4 }); }
+  CL.cheer(z1 + .2, z1 + 1.4);
+  CL.emote(at('no', 47), 49.3, '?');
+  // — board 1: Weil, Stepanov; then the wipe is Clawd running through "d/dn ?", and BUILD IT
+  CL.hop(49.55, 50.45, WX(1, 1800), 1260, 520).face(50.45, 70.4, -1);
+  HITS.addBurst(50.45, WX(1, 1800), 1260, 'white', 20).addShake(50.45, 7, .3);
+  CL.cheer(at('nowhere') + .1, at('nowhere') + 1.2);
+  for (let k = 0; k < 3; k++) HITS.addRing(at('stack') + .05 + k * .55 + .3, WX(1, 900), CY(900), 'white', 520, .6);
+  CL.walk(70.5, 71.45, WX(1, 2950), 1100);
+  CL.emote(at('world') + .1, 78.7, '?');
+  CL.hop(78.75, 79.13, WX(1, 1720), 700, 160);
+  CL.follow(79.15, 79.75, t => { const u = clamp((t - 79.15) / .6); return [WX(1, 1740 + u * 1160), 700 + Math.sin(u * 9.4) * 50 - 10, .18]; }, { air: false });
+  for (let k = 0; k < 6; k++) HITS.addBurst(79.18 + k * .1, WX(1, 1760 + k * 195), 640, 'white', 14, { puff: true, speed: 120, size: 2.6 });
+  CL.hop(79.8, 80.28, WX(1, 2300), 1010, 220).face(80.28, 82, 1);
+  const tBuild = at('build', 80);
+  HITS.impact(tBuild, WX(1, 2240), 680, 'white', 2.2).addRoll(tBuild, .045, .5);
+  HITS.addBurst(tBuild + .02, WX(1, 2240), 680, 'kid', 40, { speed: 420, size: 3.6 });
+  CL.cheer(tBuild, 81.35).still(81.35, 81.95).face(81.35, 81.95, 1);
+  // — chorus 1 (night): drops onto U(X₀), hops up the chain one lift per beat, writes √X in yellow, lands the zeros
+  const top = (n) => [WX(2, n[0] + nw(n[2]) / 2), n[1] - ncap - 18];
+  const NT = [top(NODES[0]), top(NODES[1]), top(NODES[2]), [WX(2, 1890), 560], top(NODES[3])];
+  HITS.addFlash(81.99, .7, [1, .9, .75], .22).addRoll(81.92, -.05, .7).addZoom(81.92, .1, .6);
+  CL.place(81.9, NT[0][0], NT[0][1] - 900).hop(81.95, 82.32, NT[0][0], NT[0][1], 0);
+  HITS.impact(82.32, NT[0][0], NT[0][1], 'white', .8);
+  const chain = (ts, from = 1, flips = [], onLeave) => ts.forEach((t, i) => { const n = NT[from + i]; if (onLeave) onLeave(t - .34, from + i - 1); CL.hop(t - .34, t, n[0], n[1], 190, { flip: flips[i] || 0 }); HITS.addBurst(t, n[0], n[1], 'white', 22, { speed: 240 }).addShake(t, 9, .25).addZoom(t, .035, .3).addRing(t, n[0], n[1], 'white', 160, .4); });
+  chain([tl1 + .58, tl2 + .5, tth + .45, tth2 + .35], 1, [0, 0, -1, -1]);
+  const sqX = WX(2, 1150), sqY = 600, tsq = at('root', 85) - .05;
+  CL.hop(tsq - .55, tsq - .05, sqX, sqY, 260).face(tsq - .05, 90.9, -1).hold(tsq - .05, tsq + 1.6, t => 1.0 + Math.sin(t * 22) * .25);
+  HITS.addBurst(tsq + 1.45, WX(2, 700), 500, 'kid', 46, { speed: 300 }).addFlash(tsq + 1.45, .22, [1, .9, .55], .4).addShake(tsq + 1.45, 10, .35);
+  const hh = [at('unitary', 91), at('unitary', 92), at('higher', 93), at('higher', 94)];
+  chain([hh[0] + .05, hh[1] + .1, hh[2] + .1, hh[3] + .2], 1, [0, 0, 0, -1]);
+  CL.cheer(hh[3] + .25, 95.6);
+  CL.hop(95.75, 96.45, WX(2, 2700), 1430, 300).face(96.45, 103, 1);
+  h3.forEach((t, i) => { HITS.impact(t + .1, WX(2, L3), [930, 720, 500][i], 'orange', .9 + i * .25); CL.hop(t - .05, t + .25, WX(2, 2700), 1430, 70); });
+  HITS.addRoll(h3[2] + .1, .04, .6);
+  CL.cheer(h3[2] + .3, 102.6).wave(103.0, 104.6);
+  // — board 3: balancing on the seesaw beat, then climbing the Iwasawa tower floor by floor
+  CL.place(107.25, WX(3, 1600), 760);
+  HITS.addFlash(107.3, .12, [1, .96, .9], .3);
+  CL.follow(at('both') - .1, at('even') + .7, t => [WX(3, 1600), 760, Math.sin((t - at('both')) * 5.2) * .22], { walk: false });
+  CL.cheer(at('away') - .3, at('away') + .9);
+  CL.walk(117.2, 118.3, WX(3, 1600), 1210);
+  [0, 1, 2, 3].forEach(i => { const t = ft[i] + .62; CL.hop(t - .3, t, WX(3, i < 3 ? TWX + TWW / 2 : 2110), BASE - FH * (i + 1), 120); HITS.addBurst(t, WX(3, TWX + TWW / 2), BASE - FH * (i + 1), 'white', 16, { speed: 180 }).addZoom(t, .02, .3); });
+  CL.hop(ft[3] + .9, ft[3] + 1.4, WX(3, 1560), 1210, 220);
+  CL.cheer(at('doors') - .1, at('doors') + 1.1);
+  // — board 4: watches the explicit formula; rides the price-of-a-lift curve, stalls at 2/3, twists, climbs to 1
+  CL.place(127.0, WX(4, 1780), 1240);
+  CL.cheer(at('positive') + .2, at('positive') + 1.2).emote(at('no', 137), at('no', 137) + 1.4, '!').cheer(at('cancellation') + .3, at('cancellation') + 1.3);
+  const whenX = (st, x) => { for (let t = st.t0; t < st.t1; t += .005) if (frontAt(st, t)[0] >= x) return t; return st.t1; };
+  const tOn = whenX(curveSt, WX(4, GX + 210));
+  CL.hop(148.35, 148.95, WX(4, GX + 210), GY, 260);
+  CL.follow(tOn, curveSt.t1 + .05, t => { const p = frontAt(curveSt, t); return [p[0], p[1], dirAt(curveSt, t) * .6]; });
+  CL.sit(curveSt.t1 + .6, at('twist') - .15).emote(curveSt.t1 + .9, at('twist') - .2, '?');
+  CL.spin(at('twist') - .1, at('twist') + .45, 1);
+  HITS.addBurst(at('twist') + .1, WX(4, GX + GW * .62), y23, 'white', 26, { speed: 240 });
+  CL.follow(c2St.t0, c2St.t1 + .05, t => { const p = frontAt(c2St, t); return [p[0], p[1], dirAt(c2St, t) * .6]; });
+  HITS.impact(c2St.t1 + .05, WX(4, GX + GW * .98), y1 + 6, 'white', 1.0);
+  CL.cheer(c2St.t1 + .1, 157.9);
+  // — chorus 2 (harder): same chain, then Clawd rides the orange line that sews the boards back to Riemann's
+  HITS.addFlash(158.9, .75, [1, .88, .7], .24).addRoll(158.9, .055, .7).addZoom(158.9, .12, .6);
+  CL.place(158.7, NT[0][0], NT[0][1] - 1000).hop(158.75, 159.1, NT[0][0], NT[0][1], 0);
+  HITS.impact(159.1, NT[0][0], NT[0][1], 'white', 1.0);
+  const CLONES = [];
+  const leave = (t, i) => {
+    const n = NT[i], c = new Track(0, n[0], n[1], 0, { phase: .12 * (i + 1) }); c.scaleTo(t, k0, .3).hide(0, t);
+    HITS.addBurst(t + .02, n[0], n[1] - 120, 'clay', 22, { speed: 220 }); CLONES.push(c); return c;
+  };
+  chain(c2.map((t, i) => t + [.45, .45, .45, .4][i]), 1, [0, -1, 0, -1], leave);
+  const tsq2 = at('square', 162);
+  leave(tsq2 - .5, 4);
+  CL.hop(tsq2 - .5, tsq2, sqX, sqY, 260).face(tsq2, 167.6, -1).hold(tsq2, tsq2 + 2.6, t => 1.0 + Math.sin(t * 22) * .25);
+  HITS.addBurst(tsq2 + .4, WX(2, 560), 600, 'kid', 40, { speed: 300 }).addFlash(tsq2 + .4, .2, [1, .9, .55], .4);
+  const hh2 = [at('unitary', 167.5), at('unitary', 168.5), at('higher', 169.5), at('higher', 170.5)];
+  hh2.forEach((t, j) => CLONES.forEach((c, i) => { const n = NT[i], tt = t + .1 + i * .07; c.hop(tt, tt + .42, n[0], n[1], 150 + j * 40, { flip: (i + j) % 2 ? 1 : -1 }); }));
+  hh2.forEach(t => HITS.addZoom(t + .1, .04, .35).addShake(t + .4, 8, .3));
+  CL.cheer(hh2[0], 171.7);
+  CLONES.forEach((c, i) => { const t = 171.9 + i * .08, n = NT[i]; c.cheer(hh2[3] + .6, t).scaleTo(t, 0, .22).hide(t + .3, 1e9); HITS.addBurst(t + .1, n[0], n[1] - 110, 'clay', 30, { speed: 320 }); });
+  CL.hop(171.85, T.sew0, WX(2, L3), 1420, 260);
+  const sewEnd = T.sew1 + .02;
+  CL.follow(T.sew0, sewEnd, t => { const p = frontAt(sew, t); return [p[0], p[1], t < T.sew0 + .25 ? .1 : -.16, -1]; }, { walk: true });
+  CL.hold(T.sew0 + .2, sewEnd, () => 1.5).face(T.sew0, sewEnd, -1);
+  for (let t = T.sew0 + .1; t < T.sew1; t += .09) { const p = frontAt(sew, t); HITS.addBurst(t, p[0], p[1], 'orange', 10, { puff: false, speed: 220, size: 2.6, dir: 0, spread: 1.6, life: .9 }); }
+  CL.hop(sewEnd, sewEnd + .35, WX(0, 2550), 1590, 140).face(sewEnd + .35, 180.5, -1);
+  h1.forEach((t, i) => { HITS.impact(t + .1, WX(0, LX), AX + 17.5 * Z[i], 'orange', 1.1 + i * .35); CL.hop(t - .05, t + .25, WX(0, 2550), 1590, 80); });
+  HITS.addRoll(h1[2] + .1, -.05, .7).addFlash(h1[2] + .1, .4, [1, .75, .5], .7);
+  CL.cheer(h1[2] + .3, 180.4);
+  // — board 5: Lean. Clawd checks for sorry, waits for the build, hands it to the kernel, writes the three axioms
+  CL.place(181.6, WX(5, 1350), 700);
+  CL.emote(at('scanned'), at('scanned') + 1.6, '?').cheer(at('none') + .1, at('none') + 1.0);
+  CL.sit(at('done', 193) - .1, at('levent') - .4);
+  const kb = box(T.kernel);
+  CL.wave(at('claude', 196) - .05, at('claude', 196) + 1.1).emote(at('claude', 196) - .05, at('claude', 196) + 1.2, '!');
+  CL.hop(at('kernel') - .3, at('kernel') + .1, kb[2] + 150, 1070, 200);
+  HITS.addBurst(at('kernel') + .1, kb[2] + 150, 1070, 'white', 20);
+  CL.hop(201.55, 202.45, WX(5, 1500), 700, 380).face(202.45, 213, 1);
+  CL.hold(at('only') - .1, at('nothing') + .4, t => .55 + Math.sin(t * 20) * .2);
+  [['only', 440], ['three', 545], ['names', 650]].forEach(([wd, y]) => { const t = at(wd, 207) + .1; HITS.addBurst(t, WX(5, 1800), y - 30, 'kid', 22, { speed: 200 }).addZoom(t, .02, .3); });
+  CL.hop(212.9, 213.6, WX(5, 2650), 1420, 380).face(213.6, 223, 1);
+  HITS.addFlash(213.45, .45, [1, .85, .65], .5).addRoll(213.45, -.04, .6);
+  HITS.impact(line6.t1, WX(5, L6), 800, 'orange', 2.6).addRoll(line6.t1, .06, .7);
+  for (let k = 0; k < 6; k++) HITS.addBurst(line6.t1 + .02, WX(5, L6), 120 + k * 260, 'orange', 18, { speed: 340, puff: false });
+  CL.cheer(line6.t1, 223.4);
+  [at('line', 218), at('line', 221)].forEach(t => HITS.impact(t, WX(5, L6), 700, 'orange', 1.4));
+  // — end card: Clawd hops in under the credits, waves, hums
+  CL.place(224.3, WX(6, 1600), 1330).scaleTo(224.3, 1.35, .01).hop(224.9, 225.6, WX(6, 1600), 1330, 300, { flip: 1 }).face(225.6, 234.9, -1);
+  HITS.addBurst(225.6, WX(6, 1600), 1330, 'clay', 26);
+  CL.wave(228.4, 230.4).emote(231.5, 234.6, '♪').dance(225.6, 234.8, 'jump');
+  CL.hop(234.9, 235.55, WX(6, 1600), 1330, 260, { flip: -1 }).cheer(235.6, 235.95).still(235.95, 240).face(235.95, 240, 1);
+  HITS.impact(235.55, WX(6, 1600), 1330, 'white', 1.0);
+  // ── chalk words that slam in on the hooks (screen space, 1920×1080 design units)
+  const POPS = [];
+  const pop = (t, text, x, y, size, o = {}) => { const st = M(text, -mathWidth(text, size) / 2, size / 2, size, -10, { seed: SEED++, dur: .01, color: o.color || 'white', lw: o.lw ?? .085 }); for (const q of st) { q.t0 = -10; q.t1 = -9.99; } POPS.push({ t, d: o.d ?? .7, x, y, rot: o.rot ?? 0, st, size }); HITS.addShake(t, o.shake ?? 10, .3).addZoom(t, o.zoom ?? .03, .3); };
+  for (const [cx, LIFT, TH, HI, HOME, TL, sc] of [[0, [tl1, tl2], [tth, tth2], hh, at('home', 96), h3, 1], [1, [c2[0], c2[1]], [c2[2], c2[3]], hh2, at('home', 173), h1, 1.2]]) {
+    pop(LIFT[0], 'LIFT IT!', 520, 250, 120 * sc, { rot: -.12 }); pop(LIFT[1], 'LIFT IT!', 1400, 230, 135 * sc, { rot: .1 });
+    pop(TH[0], '\\theta', 300, 520, 300 * sc, { color: 'kid', rot: -.15, d: .55 }); pop(TH[1], '\\theta', 1640, 480, 340 * sc, { color: 'kid', rot: .15, d: .55 });
+    pop(HI[2], 'HIGHER', 960, 230, 130 * sc, { rot: -.06 }); pop(HI[3], 'HIGHER!', 960, 230, 175 * sc, { rot: .06, color: 'kid' });
+    pop(HOME, 'HOME', 600, 250, 150 * sc, { rot: -.1 });
+    TL.forEach((t, i) => pop(t, 'TO THE LINE', [560, 1360, 960][i], [250, 300, 420][i], (110 + 30 * i) * sc, { color: 'orange', rot: [-.1, .1, 0][i], d: .9, shake: 14 }));
+    pop(at('one-half', TL[2] + .2), 'ONE-HALF', 960, 560, 230 * sc, { color: 'orange', d: 1.1, shake: 22, zoom: .06 });
+  }
+  // the verses get their own hits, smaller, on the words that carry the story
+  const V = [['hundred', 40, '160 YEARS', 1300, 230, 110, 'white', -.08], ['made', 45, 'PROOF?', 700, 240, 120, 'white', .1],
+    ['weil', 55, 'WEIL', 1350, 220, 120, 'white', -.1], ['road', 57, 'THE ROAD', 1300, 240, 110, 'white', .08], ['vanish', 60, 'VANISH', 1350, 230, 120, 'white', -.08],
+    ['stack', 63, 'STACK IT', 1350, 230, 120, 'kid', .08], ['frobenius', 74, 'NO FROBENIUS', 760, 860, 96, 'white', -.06], ['back', 75, 'NO WAY BACK', 760, 860, 100, 'white', .06],
+    ['seesaw', 107, 'BALANCE', 1350, 260, 120, 'white', -.08], ['fall', 113, 'FALL AWAY', 600, 860, 110, 'white', .1],
+    ['floor', 118, 'FLOOR', 700, 260, 120, 'white', -.1], ['floor', 119.5, 'BY FLOOR', 760, 300, 130, 'white', .08],
+    ['settle', 128, 'SETTLE UP', 1350, 860, 110, 'white', -.06], ['positive', 131, '+', 1500, 380, 300, 'kid', 0], ['honest', 142, 'HONEST', 1450, 860, 110, 'white', .08],
+    ['price', 148, 'PAY UP', 700, 260, 110, 'white', -.1], ['stay', 151, 'STAY...', 700, 260, 110, 'white', .06],
+    ['seventeen', 181, '17,400,000', 1300, 250, 130, 'white', -.06], ['done', 193, 'NOT DONE', 1450, 280, 110, 'orange', .1], ['kernel', 197, 'KERNEL', 1400, 260, 110, 'kid', -.08],
+    ['three', 208, '3', 760, 300, 300, 'kid', 0]];
+  for (const [wd, after, txt, x, y, size, color, rot] of V) pop(at(wd, after) + .02, txt, x, y, size, { color, rot, d: .6, shake: 7, zoom: .02 });
+  pop(at('twist') + .05, 'TWIST!', 1280, 250, 160, { rot: .16 });
+  pop(at('none') + .05, 'NONE!', 1450, 300, 150, { rot: .1 });
+  pop(at('line', 218), 'THE LINE AT ONE-HALF', 960, 300, 88, { color: 'orange', d: 1.3, shake: 16 });
+  pop(at('line', 221), 'THE LINE AT ONE-HALF', 960, 300, 108, { color: 'orange', d: 1.4, shake: 24, zoom: .07 });
+  // ── Clawd-shaped irises on the board changes: close on him, open on him somewhere else
+  const IRIS = [[106.62, 107.12, 107.6], [126.45, 126.95, 127.35], [180.9, 181.35, 181.9], [223.3, 223.85, 224.6]];
+  // ── the barrel roll into chorus 2
+  HITS.addSpin(158.3, 158.95, -1);
+  // whip pans get a soft flash on the cut
+  for (const tw of [49.6, 70.45, 104.6, 107.3, 117.2, 126.9, 148.0, 158.4, 201.7, 224.4]) HITS.addFlash(tw, .08, [1, .97, .92], .25);
+
+  // the camera chases Clawd along the sewing line
+  // dive into Clawd's eye: a pure zoom about the eye that also brings it to the centre (exponential scale)
+  const eyeAt = t => { const st = CL.state(t); return localToWorld(st, -2.5 * CU, -6.0 * CU); };
+  const dive = (t, a, b, sEnd) => {
+    const c0 = camAt0(a), e = eyeAt(Math.min(t, b)), u = ei(clamp((t - a) / (b - a))) ;
+    const s = Math.exp(lerp(Math.log(c0.s), Math.log(sEnd), u)), keep = c0.s / s * (1 - eo(clamp((t - a) / (b - a))));
+    return { ...camAt0(t), cx: e[0] + (c0.cx - e[0]) * keep, cy: e[1] + (c0.cy - e[1]) * keep, s };
+  };
+  const DIVES = [[81.68, 81.99, 90], [236.0, 237.15, 120]];
+  const camAt = t => {
+    for (const [a, b, se] of DIVES) {
+      if (t >= a && t < b) return dive(t, a, b, se);
+      if (t >= b && t < b + .25 && b < 100) { const c = camAt0(82.15); return { ...c, shot: c.shot + 500 }; }
+      if (t >= b && b > 200) return { ...dive(b - .001, a, b, se), shot: 900 };
+    }
+    const c = camAt0(t);
+    const a = T.sew0 + .1, b = T.sew1 + .1;
+    if (t < a || t > b + .6) return c;
+    const p = frontAt(sew, Math.min(t, T.sew1)), k = clamp((t - a) / .35) * (1 - clamp((t - b) / .6));
+    return { ...c, cx: lerp(c.cx, p[0] - 320, k), cy: lerp(c.cy, 1300, k), s: lerp(c.s, .8, k) };
+  };
+
   // subtitle cues: sung lines (karaoke) and the Chinese notes
   const SUBS = [];
   LYRICS.forEach((c, i) => {
@@ -312,7 +495,7 @@ export function build(W = 1920, H = 1080) {
     SUBS.push({ id: c.id, t0, t1, en: c.en, zh: c.zh, words: c.words });
     EV.push({ t: +t0.toFixed(3), type: 'sub', t1: +t1.toFixed(3), en: c.en, zh: c.zh });
   });
-  NOTES.forEach(n => { SUBS.push({ ...n, note: true }); EV.push({ t: n.t0, type: 'note', t1: n.t1, zh: n.zh }); });
+  NOTES.forEach(n => { SUBS.push({ ...n, note: true }); EV.push({ t: n.t0, type: 'note', t1: n.t1, en: n.en, zh: n.zh }); });
   SUBS.sort((a, b) => a.t0 - b.t0);
 
   // chalk events for the foley: every stroke, with its on-screen length and where it sits across the frame
@@ -323,5 +506,5 @@ export function build(W = 1920, H = 1080) {
   }
   for (let i = 1; i < keys.length; i++) { const a = keys[i - 1], b = keys[i]; if (!b.cut && Math.abs(b.cx - a.cx) * b.s > 1500 && b.t - a.t < 1.2) EV.push({ t: a.t, type: 'whip', d: b.t - a.t }); }
   EV.sort((a, b) => a.t - b.t);
-  return { S, TX, EV, SUBS, T, camAt, keys, DUR, wipe: T.wipe };
+  return { S, TX, EV, SUBS, T, camAt, keys, DUR, wipe: T.wipe, HITS, CL, CLONES, CLAWD_T, POPS, IRIS };
 }

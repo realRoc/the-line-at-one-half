@@ -16,14 +16,19 @@ MUSIC
   complete soundtrack, unedited.
 
 IMAGES, FOOTAGE, MODELS
-- None. Wall, boards, frame, tray, clock and every chalk stroke are drawn in code. No photographs, no scans,
+- Clawd is Anthropic's mascot for Claude Code; drawn here in chalk (js/clawd.js) as a nod to Claude's part in the
+  proof. Its silhouette (10×6 body, four legs, two slit eyes) follows the mascot; the chalk rendering is this film's.
+- Otherwise none. Wall, boards, frame, tray, clock and every chalk stroke are drawn in code. No photographs, no scans,
   no AI-generated images, no 3D models.
 
 CHALK ENGINE
 - js/chalk.js, js/hand.js, js/r2d.js, js/post.js, js/props.js, js/lab.js, js/hz.js, tools/foley_lib.py: from the
   Chalkboard style of the Lemo-Opuscar library (github.com/lemomo-ai/lemo-opuscar), used as the style's engine.
 - js/mathhand.js (Greek letters and maths symbols as chalk centre lines), js/stage.js, js/app.js, js/film.js: written
-  for this film.
+  for this film. v2: js/fx.js, js/clawd.js, tools/beats.py written for this film; js/post.js extended (glow, flash,
+  chromatic aberration, night grade).
+- v2's motion grammar (beat punch-ins, decaying shakes, flash frames, escalating choruses) was studied from
+  github.com/JohnHeibel/PDoomVideo; no code or art from it is used.
 
 FONTS (SIL Open Font License 1.1; licence texts in fonts/)
 - EMS Delight, single-stroke SVG font (derivative of Delius by Natalia Raices; SVG conversion by Sheldon B. Michaels
@@ -38,5 +43,6 @@ SOUND
 - Felt wipe and whip whooshes: synthesised (Lemo-Opuscar core/audio/sfx.py).
 
 TOOLS
+- Beat grid: librosa (ISC).
 - Lyric timing: demucs (MIT), stable-ts (MIT), faster-whisper (MIT) with the Whisper large-v3-turbo model (MIT).
 - Render: headless Chromium via Playwright, ffmpeg.
